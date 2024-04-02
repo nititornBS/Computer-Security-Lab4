@@ -1,14 +1,15 @@
-import json
-import base64
-from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from pwn import *
+import json
+from Crypto.Cipher import AES
 
 ip = 'localhost'
 port = 5000
-
 io = remote(ip, port)
+print("Connected to the server")
 
+def share_key_to_AES_key(share_key):
+    return SHA256.new(share_key.to_bytes(share_key.bit_length(), byteorder='big')).digest()
 
 def is_generator(g, p):
     group_elements = set()
@@ -23,40 +24,61 @@ def find_generator(p):
             return g
     return None
 
-def share_key_to_AES_key(share_key):
-    return SHA256.new(share_key).digest()
-
 data1 = io.recvline().decode("utf-8")
+print(data1)
 io.sendline(str(1).encode())
 data1 = io.recvline().decode("utf-8")
 print(data1)
 data1 = io.recvline().decode("utf-8")
+print(data1)
 data1 = io.recvline().decode("utf-8")
-prime = io.recvline().decode("utf-8").split()[1]
+print(data1)
+prime = io.recvline().decode("utf-8")
+print(prime)
+prime = prime.split(":")[1][1:-1]
 prime = int(prime)
 print(prime)
+
 gen = find_generator(prime)
-print("generator is ", gen)
-io.sendline(str(gen))
-data1 = io.recvline().decode("utf-8")
-print(data1)
-PK = io.recvline().decode("utf-8").split()[3]
-PK = int(PK)
-print(PK)
-public_key  = prime -1000
-# gen2 = find_generator(public_key)
-io.sendline(str(public_key))
-data1 = io.recvline().decode("utf-8")
-print("asdfasdf",data1)
-data1 = io.recvline().decode("utf-8")
-print(data1)
-data1 = io.recvline().decode("utf-8")
-print(data1)
-data = io.recvline().decode("utf-8")
+print("Generator is : ", gen)
 
-print(data)
+io.sendline(str(gen).encode())
+data1 = io.recvline().decode("utf-8")
+print(data1)
 
-json_output = data
+server_Pk = io.recvline().decode("utf-8")
+print(server_Pk)
+server_Pk = server_Pk.split(":")[1][1:-1]
+server_Pk = int(server_Pk)
+print(server_Pk)
+
+def generate_privatekey(prime):
+    return random.randrange(start = 1,stop = prime-1)
+
+def generate_publickey(generator, privateKey, prime):
+    return pow(generator, privateKey, prime)
+
+def share_key(other_public ,privateKey, prime):
+    return  pow(other_public, privateKey, prime)
+
+myPrivateKey = random.randrange(start = 1,stop = prime-1)
+myPublicKey = pow(gen, myPrivateKey, prime)
+myShareKey = pow(server_Pk, myPrivateKey, prime)
+
+io.sendline(str(myPublicKey))
+data1 = io.recvline().decode("utf-8")
+print(data1)
+
+data1 = io.recvline().decode("utf-8")
+print(data1)
+
+data1 = io.recvline().decode("utf-8")
+print(data1)
+
+json_output = io.recvline().decode("utf-8")
+print(json_output)
+
+
 decoded_output = json.loads(json_output)
 nonce = base64.b64decode(decoded_output['nonce'])
 print("nonce", nonce)
@@ -67,25 +89,16 @@ print("ciphertext", ciphertext)
 tag = base64.b64decode(decoded_output['tag'])
 print("tag", tag)
 
-myPk = prime-1000
-def find_share_key(public_key,PK,prime):
-    share_key = pow(public_key,PK,prime)
-    return SHA256.new(share_key.to_bytes(share_key.bit_length(),byteorder='big')).digest()
-nonce = base64.b64decode(decoded_output['nonce'])
-ciphertext = base64.b64decode(decoded_output['ciphertext'])
-tag = base64.b64decode(decoded_output['tag'])
+encryption_key = share_key_to_AES_key(myShareKey)
 
-share_key = find_share_key(myPk, PK, prime)
+cipher = AES.new(encryption_key, AES.MODE_GCM, nonce=nonce)
+cipher.update(header)
+plaintext = cipher.decrypt_and_verify(ciphertext, tag)
 
-key = share_key_to_AES_key(share_key)
 
-cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
 
-try:
-    plaintext = cipher.decrypt_and_verify(ciphertext, tag)
-    print("Decryption successful:")
-    print("Flag:", plaintext.decode('utf-8'))
-except ValueError as e:
-    print("Decryption failed:", e)
+print("Decryption successful!")
+print("Plaintext:", plaintext.decode('utf-8')) 
 
+    
 io.close()
