@@ -52,17 +52,12 @@ server_Pk = server_Pk.split(":")[1][1:-1]
 server_Pk = int(server_Pk)
 print(server_Pk)
 
-def generate_privatekey(prime):
-    return random.randrange(start = 1,stop = prime-1)
-
-def generate_publickey(generator, privateKey, prime):
-    return pow(generator, privateKey, prime)
-
-def share_key(other_public ,privateKey, prime):
-    return  pow(other_public, privateKey, prime)
 
 myPrivateKey = random.randrange(start = 1,stop = prime-1)
 myPublicKey = pow(gen, myPrivateKey, prime)
+
+
+
 myShareKey = pow(server_Pk, myPrivateKey, prime)
 
 io.sendline(str(myPublicKey))

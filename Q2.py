@@ -3,26 +3,12 @@ from pwn import *
 import json
 from Crypto.Cipher import AES
 
-ip = 'localhost'
-port = 5000
+ip = '172.26.201.17'
+port = 2134
 io = remote(ip, port)
 
 def share_key_to_AES_key(share_key):
     return SHA256.new(share_key.to_bytes(share_key.bit_length(), byteorder='big')).digest()
-
-def is_generator(g, p):
-    group_elements = set()
-    for k in range(1, p):
-        group_elements.add(pow(g, k, p))
-    return len(group_elements) == p - 1 
-
-def find_generator(p):
-    for g in range(2, p):
-        print("round :",g)
-        if is_generator(g, p):
-            return g
-    return None
-
 data1 = io.recvline().decode("utf-8")
 print(data1)
 io.sendline(str(2).encode())
